@@ -1,8 +1,10 @@
-from pydantic_settings import BaseSettings # type: ignore
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env")
+    
     gemini_api_key: str
     database_url: str
     secret_key: str
@@ -13,9 +15,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     max_upload_size_mb: int = 5
     questions_per_session: int = 5
-
-    class Config:
-        env_file = ".env"
+    gemini_model: str = "gemini-2.5-flash"
 
 
 @lru_cache()
