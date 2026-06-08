@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { getReport } from '../services/api'
 
@@ -8,37 +8,47 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    async function fetchReport() {
-      try {
-        const { data } = await getReport(sessionId)
-        setReport(data)
-      } catch (e) {
-        setError('Failed to generate report.')
-      } finally {
-        setLoading(false)
-      }
+  const fetchReport = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const { data } = await getReport(sessionId)
+      setReport(data)
+    } catch (e) {
+      setError('Failed to generate report.')
+    } finally {
+      setLoading(false)
     }
+  }, [sessionId])
+
+  useEffect(() => {
     fetchReport()
-  }, [])
+  }, [fetchReport])
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-      <p className="text-gray-400 animate-pulse">Generating your report...</p>
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4">
+      <div className="w-8 h-8 border-2 border-gray-600 border-t-indigo-400 rounded-full animate-spin" />
+      <p className="text-gray-400 text-sm">Generating your report...</p>
     </div>
   )
 
   if (error) return (
-  <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center flex-col gap-4">
-    <p className="text-red-400">{error}</p>
-    <button
-      onClick={() => { setError(''); setLoading(true); fetchReport(); }}
-      className="text-sm text-indigo-400 hover:text-indigo-300"
-    >
-      Retry
-    </button>
-  </div>
-)
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center gap-4">
+      <p className="text-red-400">{error}</p>
+      <button
+        onClick={fetchReport}
+        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm rounded-lg transition-colors"
+      >
+        Retry
+      </button>
+      <button
+        onClick={() => window.location.href = '/'}
+        className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors"
+      >
+        Start New Interview
+      </button>
+    </div>
+  )
 
   const insights = report?.insights || {}
 
@@ -76,7 +86,7 @@ export default function ReportPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-gray-900 rounded-2xl p-6">
             <h2 className="text-sm text-gray-400 mb-3">Strengths</h2>
             <ul className="space-y-2">
