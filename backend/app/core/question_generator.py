@@ -56,8 +56,6 @@ Return only the question, nothing else."""
             f"Prompt chars: {len(prompt)}"
         )
         response = client.models.generate_content(
-            # model="gemini-2.0-flash",
-            # model="gemini-2.0-flash-lite",
             model="gemini-2.5-flash",
             contents=prompt,
         )
