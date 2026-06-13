@@ -39,3 +39,6 @@ frontend/dist/
 # Logs
 *.log
 logs/
+
+#model trials
+hello.py
