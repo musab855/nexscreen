@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     max_upload_size_mb: int = 5
     questions_per_session: int = 5
-    # gemini_model: str = "gemini-2.5-flash"
+    pinecone_api_key: str
+    pinecone_index: str = "nexscreen"
 
 
 @lru_cache()

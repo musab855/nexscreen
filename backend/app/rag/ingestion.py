@@ -1,18 +1,15 @@
 import fitz
-import chromadb
-from pathlib import Path
-from app.rag.embedder import embed_texts
+from pinecone import Pinecone
+from sentence_transformers import SentenceTransformer
 from app.config import get_settings
 from app.utils.logger import logger
 
 settings = get_settings()
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
-def get_chroma_client():
-    return chromadb.PersistentClient(path=settings.chroma_persist_dir)
-
-def get_collection(role: str):
-    client = get_chroma_client()
-    return client.get_or_create_collection(name=f"nexscreen_{role}")
+def get_pinecone_index():
+    pc = Pinecone(api_key=settings.pinecone_api_key)
+    return pc.Index(settings.pinecone_index)
 
 def extract_text_from_pdf(pdf_path: str) -> list[str]:
     doc = fitz.open(pdf_path)
@@ -36,25 +33,39 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]
 
 def ingest_pdf(pdf_path: str, role: str, source_name: str):
     logger.info("ingesting_pdf", path=pdf_path, role=role)
+    index = get_pinecone_index()
     pages = extract_text_from_pdf(pdf_path)
+
     all_chunks = []
     for page_num, page_text in enumerate(pages):
         chunks = chunk_text(page_text)
-        all_chunks.extend([
-            {"text": c, "page": page_num + 1}
-            for c in chunks
-        ])
+        for i, chunk in enumerate(chunks):
+            all_chunks.append({
+                "id": f"{source_name}_p{page_num+1}_{i}",
+                "text": chunk,
+                "source": source_name,
+                "page": page_num + 1,
+                "role": role,
+            })
 
-    collection = get_collection(role)
-    texts = [c["text"] for c in all_chunks]
-    embeddings = embed_texts(texts)
-    ids = [f"{source_name}_p{c['page']}_{i}" for i, c in enumerate(all_chunks)]
-    metadatas = [{"source": source_name, "page": c["page"], "role": role} for c in all_chunks]
+    batch_size = 96
+    for i in range(0, len(all_chunks), batch_size):
+        batch = all_chunks[i:i+batch_size]
+        texts = [c["text"] for c in batch]
+        embeddings = model.encode(texts).tolist()
+        vectors = [
+            {
+                "id": c["id"],
+                "values": emb,
+                "metadata": {
+                    "text": c["text"],
+                    "source": c["source"],
+                    "page": c["page"],
+                    "role": c["role"],
+                }
+            }
+            for c, emb in zip(batch, embeddings)
+        ]
+        index.upsert(vectors=vectors, namespace=role)
 
-    collection.add(
-        documents=texts,
-        embeddings=embeddings,
-        ids=ids,
-        metadatas=metadatas,
-    )
     logger.info("ingestion_complete", chunks=len(all_chunks), role=role)
