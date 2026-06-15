@@ -26,6 +26,7 @@ jobs:
           GEMINI_API_KEY: "fake-key-for-testing"
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SECRET_KEY: "fake-secret-key"
+          PINECONE_API_KEY: "fake-pinecone-key"
         run: |
           cd backend
           pytest tests/ -v

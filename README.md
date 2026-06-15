@@ -107,7 +107,7 @@ nexscreen/
 │   │   ├── api/
 │   │   │   └── routes/          # resume, session, interview, report
 │   │   ├── core/                # resume_parser, query_builder, question_generator, report_generator
-│   │   ├── rag/                 # ingestion, retriever, embedder
+│   │   ├── rag/                 # ingestion, retriever
 │   │   ├── db/                  # models, crud, database
 │   │   ├── schemas/             # Pydantic request/response models
 │   │   └── utils/               # logger, exceptions
