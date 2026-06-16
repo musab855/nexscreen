@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import get_settings
@@ -9,13 +10,21 @@ from app.utils.exceptions import (
     SessionNotFoundError,
     QuestionGenerationError,
 )
+from app.api.routes import resume, session, interview, report
 
 settings = get_settings()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from app.rag.retriever import get_embedding_model
+    get_embedding_model()
+    yield
 
 app = FastAPI(
     title="NexScreen API",
     version="1.0.0",
     docs_url="/docs" if settings.app_env == "development" else None,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -47,9 +56,6 @@ async def question_handler(request: Request, exc: QuestionGenerationError):
 @app.get("/health")
 async def health():
     return {"status": "ok", "env": settings.app_env}
-
-
-from app.api.routes import resume, session, interview, report
 
 app.include_router(resume.router, prefix="/api/v1/resume", tags=["resume"])
 app.include_router(session.router, prefix="/api/v1/session", tags=["session"])

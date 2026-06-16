@@ -10,6 +10,7 @@ settings = get_settings()
 def get_embedding_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
 
+@lru_cache()
 def get_pinecone_index():
     pc = Pinecone(api_key=settings.pinecone_api_key)
     return pc.Index(settings.pinecone_index)

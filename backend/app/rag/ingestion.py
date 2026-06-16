@@ -1,3 +1,4 @@
+from functools import lru_cache
 import fitz
 from pinecone import Pinecone
 from sentence_transformers import SentenceTransformer
@@ -7,6 +8,7 @@ from app.utils.logger import logger
 settings = get_settings()
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
+@lru_cache()
 def get_pinecone_index():
     pc = Pinecone(api_key=settings.pinecone_api_key)
     return pc.Index(settings.pinecone_index)
