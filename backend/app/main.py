@@ -16,8 +16,6 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from app.rag.retriever import get_embedding_model
-    get_embedding_model()
     yield
 
 app = FastAPI(

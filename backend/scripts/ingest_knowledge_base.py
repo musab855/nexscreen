@@ -16,9 +16,27 @@ BOOKS = [
 ]
 
 if __name__ == "__main__":
+    completed = []
+    skipped = []
+    failed = []
+
     for book in BOOKS:
-        if os.path.exists(book["path"]):
-            logger.info("starting_ingestion", source=book["source_name"])
-            ingest_pdf(book["path"], book["role"], book["source_name"])
-        else:
+        if not os.path.exists(book["path"]):
             logger.warning("file_not_found", path=book["path"])
+            failed.append(book["source_name"])
+            continue
+
+        logger.info("starting_ingestion", source=book["source_name"])
+        try:
+            ingest_pdf(book["path"], book["role"], book["source_name"])
+            completed.append(book["source_name"])
+        except Exception as e:
+            logger.error("ingestion_failed", source=book["source_name"], error=str(e))
+            failed.append(book["source_name"])
+            break
+
+    print(f"\nCompleted: {completed}")
+    if skipped:
+        print(f"Skipped (already ingested): {skipped}")
+    if failed:
+        print(f"Failed (resume tomorrow): {failed}")

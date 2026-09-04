@@ -56,7 +56,7 @@ Return only the question, nothing else."""
                 model=model,
                 contents=prompt,
             )
-            logger.info("question_generated", role=role, model=model)
+            logger.info(f"question_generated_{len(previous_questions)+1}", role=role, model=model)
             return response.text.strip()
         except (ServerError, ClientError) as e:
             logger.warning("model_failed", model=model, error=str(e))

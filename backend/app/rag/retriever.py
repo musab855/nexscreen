@@ -1,5 +1,6 @@
 from pinecone import Pinecone
-from sentence_transformers import SentenceTransformer
+from google import genai
+from google.genai import types
 from app.config import get_settings
 from app.utils.exceptions import RetrievalError
 from functools import lru_cache
@@ -7,8 +8,8 @@ from functools import lru_cache
 settings = get_settings()
 
 @lru_cache()
-def get_embedding_model():
-    return SentenceTransformer("all-MiniLM-L6-v2")
+def get_gemini_client():
+    return genai.Client(api_key=settings.gemini_api_key)
 
 @lru_cache()
 def get_pinecone_index():
@@ -17,8 +18,17 @@ def get_pinecone_index():
 
 def retrieve_context(query: str, role: str, n_results: int = 5) -> list[dict]:
     try:
-        model = get_embedding_model()
-        query_embedding = model.encode(query).tolist()
+        client = get_gemini_client()
+        result = client.models.embed_content(
+            model="gemini-embedding-001",
+            contents=query,
+            config=types.EmbedContentConfig(
+                task_type="RETRIEVAL_QUERY",
+                output_dimensionality=768,
+            ),
+        )
+        query_embedding = result.embeddings[0].values
+
         index = get_pinecone_index()
         results = index.query(
             vector=query_embedding,
