@@ -17,7 +17,7 @@ def get_pinecone_index():
 
 @lru_cache()
 def get_gemini_client():
-    return genai.Client(api_key=settings.gemini_api_key)
+    return genai.Client(api_key=settings.gemini_embedding_key or settings.gemini_api_key)
 
 def embed_texts(texts: list[str], task_type: str = "RETRIEVAL_DOCUMENT") -> list[list[float]]:
     client = get_gemini_client()

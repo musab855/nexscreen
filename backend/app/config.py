@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
     
     gemini_api_key: str
+    gemini_embedding_key: str = ""
     database_url: str
     secret_key: str
     algorithm: str = "HS256"
