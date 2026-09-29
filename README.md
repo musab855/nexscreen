@@ -8,11 +8,19 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat&logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?style=flat&logo=postgresql&logoColor=white)
-![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?style=flat&logo=google&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini-Embedding-001-4285F4?style=flat&logo=google&logoColor=white)
+![Pinecone](https://img.shields.io/badge/Pinecone-vector_DB-00CEC9?style=flat&logo=pinecone&logoColor=white)
 
 </div>
+
+---
+
+## Live Demo
+
+- **Frontend:** https://nexscreen-nu.vercel.app
+- **Backend:** https://nexscreen-3m6j.onrender.com
 
 ---
 
@@ -45,12 +53,18 @@ Candidate uploads Resume (PDF) + selects Role
                  │
                  ▼
         ┌─────────────────────┐
-        │     ChromaDB        │  semantic search over ML textbooks
+        │  Gemini Embedding   │  query → 768-dim vector
         └────────┬────────────┘
                  │
                  ▼
         ┌─────────────────────┐
-        │  Gemini 2.5 Flash   │  generates personalized question
+        │     Pinecone        │  semantic search over ML textbooks
+        └────────┬────────────┘
+                 │
+                 ▼
+        ┌─────────────────────┐
+        │   Gemini (multi-    │  generates personalized question
+        │   model fallback)   │
         └────────┬────────────┘
                  │
                  ▼
@@ -71,13 +85,13 @@ Candidate uploads Resume (PDF) + selects Role
 | Layer | Technology | Purpose |
 |---|---|---|
 | Backend | FastAPI (Python 3.11) | API server, business logic |
-| Frontend | React 18 + Vite + TailwindCSS | UI |
-| LLM | Google Gemini 2.5 Flash | Question & report generation |
-| Embeddings | sentence-transformers `all-MiniLM-L6-v2` | Local, free, no API cost |
-| Vector DB | ChromaDB | Semantic search over textbooks |
+| Frontend | React 19 + Vite + TailwindCSS | UI |
+| LLM | Google Gemini (multi-model fallback) | Question & report generation |
+| Embeddings | Google Gemini `gemini-embedding-001` | 768-dim vectors, free tier API |
+| Vector DB | Pinecone (384→768 dims, cosine) | Semantic search over textbooks |
 | Database | PostgreSQL (Neon) | Session & Q&A persistence |
-| ORM | SQLAlchemy + Alembic | Database access & migrations |
-| Retry Logic | Tenacity | Handles Gemini 503/429 gracefully |
+| ORM | SQLAlchemy 2.0 + Alembic | Database access & migrations |
+| Retry Logic | Multi-model fallback (manual) | Cycles through 3 Gemini models on failure |
 
 ---
 
@@ -85,14 +99,14 @@ Candidate uploads Resume (PDF) + selects Role
 
 The RAG pipeline is grounded in the following textbooks:
 
-**AI / ML Engineer Role**
+**AI / ML Engineer Role** (`ai_ml` namespace)
 - Machine Learning — Tom Mitchell
 - The Hundred-Page Machine Learning Book — Andriy Burkov
 - Machine Learning for Absolute Beginners
 - Pattern Recognition and Machine Learning — Christopher Bishop
 - Artificial Intelligence, Machine Learning & Deep Learning
 
-**Data Science / Applied ML Role**
+**Data Science / Applied ML Role** (`data_science` namespace)
 - Introduction to Machine Learning with Python
 - Master Machine Learning Algorithms — Jason Brownlee
 
@@ -107,16 +121,16 @@ nexscreen/
 │   │   ├── api/
 │   │   │   └── routes/          # resume, session, interview, report
 │   │   ├── core/                # resume_parser, query_builder, question_generator, report_generator
-│   │   ├── rag/                 # ingestion, retriever
+│   │   ├── rag/                 # ingestion (Gemini embed), retriever (Gemini embed + Pinecone)
 │   │   ├── db/                  # models, crud, database
 │   │   ├── schemas/             # Pydantic request/response models
 │   │   └── utils/               # logger, exceptions
-│   └── scripts/
-│       └── ingest_knowledge_base.py
+│   ├── scripts/
+│   │   └── ingest_knowledge_base.py
+│   └── tests/                   # 7 tests: API, parser, full workflow
 └── frontend/
     └── src/
         ├── pages/               # UploadPage, InterviewPage, ReportPage
-        ├── components/          # UI components
         ├── services/            # Axios API calls
         └── context/             # SessionContext
 ```
@@ -129,7 +143,8 @@ nexscreen/
 
 - Python 3.11+
 - Node.js 18+
-- A [Gemini API key](https://aistudio.google.com/app/apikey)
+- A [Gemini API key](https://aistudio.google.com/app/apikey) (two recommended — one for LLM, one for embeddings)
+- A [Pinecone](https://pinecone.io) API key (free tier)
 - A PostgreSQL database ([Neon](https://neon.tech) free tier works)
 
 ### Backend
@@ -149,12 +164,15 @@ pip install -r requirements.txt
 Copy `.env.example` to `.env` and fill in your values:
 
 ```bash
-GEMINI_API_KEY=your_key_here
+GEMINI_API_KEY=your_llm_key
+GEMINI_EMBEDDING_KEY=your_embedding_key
 DATABASE_URL=postgresql://user:password@host:5432/nexscreen_db
 SECRET_KEY=any_random_string
+PINECONE_API_KEY=your_pinecone_key
+PINECONE_INDEX=nexscreen
 ```
 
-Run the one-time knowledge base ingestion:
+Run the one-time knowledge base ingestion (only needed if setting up from scratch):
 
 ```bash
 python scripts/ingest_knowledge_base.py
@@ -201,26 +219,23 @@ docker-compose up --build
 
 ## Key Design Decisions
 
-**ChromaDB over Pinecone**
-ChromaDB runs embedded inside the FastAPI process with zero external dependencies. For a knowledge base of 7 textbooks it provides fast semantic search without the operational overhead of a managed vector service.
+**Gemini Embedding over local sentence-transformers**
+`gemini-embedding-001` runs on Google's servers — eliminates the local CPU bottleneck that made query embedding take 8-10s on free-tier hosting. 768 dimensions, free tier, `RETRIEVAL_QUERY`/`RETRIEVAL_DOCUMENT` task types.
 
-**Local embeddings over OpenAI embeddings**
-`all-MiniLM-L6-v2` runs entirely on-device. No API cost, no network latency during ingestion, and strong semantic similarity performance for technical text.
+**Pinecone over ChromaDB**
+ChromaDB persists to local disk, which doesn't exist in fresh deployed containers — empty vector store on every deploy. Pinecone is cloud-hosted, so retrieval works regardless of where the backend runs.
+
+**Multi-model Gemini fallback**
+Instead of Tenacity retries, both `question_generator.py` and `report_generator.py` cycle through 3 Gemini models (`gemini-3.1-flash-lite` → `gemini-2.5-flash-lite` → `gemini-2.5-flash`). On `ServerError`/`ClientError`, it moves to the next model immediately — no sleep, no backoff.
+
+**Separate API keys for LLM and embeddings**
+Ingestion and query embedding use `GEMINI_EMBEDDING_KEY`, while LLM calls use `GEMINI_API_KEY`. This prevents ingestion from exhausting the quota that the app needs for real-time queries.
 
 **Chunking strategy**
-500-token chunks with 50-token overlap. Large enough to preserve sentence context, small enough to keep retrieval granular. Metadata (source, page, role) stored alongside each chunk for traceability.
+500-word chunks with 50-word overlap. Metadata (source, page, role) stored alongside each chunk for traceability.
 
 **Stateless backend**
 All session state lives in PostgreSQL, not in application memory. The backend is horizontally scalable by design.
-
-**Retry logic**
-Tenacity wraps all Gemini API calls with exponential backoff — short waits (5–30s) for 503 server overload, longer waits (60–120s) for 429 rate limits. The frontend surfaces a retry button instead of silently failing.
-
----
-
-## Demo
-
-> Video walkthrough coming soon.
 
 ---
 
